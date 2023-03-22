@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.lang.Nullable;
@@ -823,11 +824,27 @@ class HqlQueryTransformerTests {
 				LEFT JOIN bundle bundle ON event.id = bundle.event_id
 				GROUP BY event.id
 				""", Sort.by(Sort.Direction.ASC, "cheapestBundlePrice") //
-				.and(Sort.by(
-						Sort.Direction.ASC, "earliestBundleStart")) //
-				.and(Sort.by(Sort.Direction.ASC,
-						"name"))))
-				.endsWith(" order by cheapestBundlePrice asc, earliestBundleStart asc, name asc");
+				.and(Sort.by(Sort.Direction.ASC, "earliestBundleStart")) //
+				.and(Sort.by(Sort.Direction.ASC, "name"))))
+						.endsWith(" order by cheapestBundlePrice asc, earliestBundleStart asc, name asc");
+	}
+
+	@Test // GH-2863, GH-1655
+	void shouldHandleAliasInsideCaseStatement() {
+
+		Sort sort = PageRequest.of(0, 20, Sort.Direction.DESC, "newDateDue").getSort();
+
+		assertThat(createQueryFor("Select DISTINCT new " + //
+				"com.api.dto.FilterDTO(c.id, p.id, CASE WHEN item.dateDue IS NOT NULL THEN item.dateDue ELSE p.dateDue END AS newDateDue) "
+				+ "FROM Customer c " + //
+				"join c.productOrder p " + //
+				"JOIN p.items item", //
+				sort)).isEqualTo("Select DISTINCT new " + //
+						"com.api.dto.FilterDTO(c.id, p.id, CASE WHEN item.dateDue IS NOT NULL THEN item.dateDue ELSE p.dateDue END AS newDateDue) "
+						+ "FROM Customer c " + //
+						"join c.productOrder p " + //
+						"JOIN p.items item " + //
+						"order by newDateDue desc");
 	}
 
 	private void assertCountQuery(String originalQuery, String countQuery) {
