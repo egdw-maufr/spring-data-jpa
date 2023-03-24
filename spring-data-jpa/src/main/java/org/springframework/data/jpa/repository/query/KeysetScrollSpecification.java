@@ -28,7 +28,7 @@ import org.springframework.data.domain.KeysetScrollPosition;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Order;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.data.jpa.repository.query.KeysetScrollDelegate.QueryAdapter;
+import org.springframework.data.jpa.repository.query.KeysetScrollDelegate.QueryStrategy;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.mapping.PropertyPath;
 import org.springframework.lang.Nullable;
@@ -60,7 +60,7 @@ public record KeysetScrollSpecification<T> (KeysetScrollPosition position, Sort 
 	 */
 	public static Sort createSort(KeysetScrollPosition position, Sort sort, JpaEntityInformation<?, ?> entity) {
 
-		KeysetScrollDelegate director = KeysetScrollDelegate.of(position.getDirection());
+		KeysetScrollDelegate delegate = KeysetScrollDelegate.of(position.getDirection());
 
 		Sort sortToUse;
 		if (entity.hasCompositeId()) {
@@ -69,7 +69,7 @@ public record KeysetScrollSpecification<T> (KeysetScrollPosition position, Sort 
 			sortToUse = sort.and(Sort.by(entity.getRequiredIdAttribute().getName()));
 		}
 
-		return director.getSortOrders(sortToUse);
+		return delegate.getSortOrders(sortToUse);
 	}
 
 	@Override
@@ -80,17 +80,17 @@ public record KeysetScrollSpecification<T> (KeysetScrollPosition position, Sort 
 	@Nullable
 	public Predicate createPredicate(Root<?> root, CriteriaBuilder criteriaBuilder) {
 
-		KeysetScrollDelegate director = KeysetScrollDelegate.of(position.getDirection());
-		return director.createPredicate(position, sort, new JpaQueryAdapter(root, criteriaBuilder));
+		KeysetScrollDelegate delegate = KeysetScrollDelegate.of(position.getDirection());
+		return delegate.createPredicate(position, sort, new JpaQueryStrategy(root, criteriaBuilder));
 	}
 
 	@SuppressWarnings("rawtypes")
-	private static class JpaQueryAdapter implements QueryAdapter<Expression<Comparable>, Predicate> {
+	private static class JpaQueryStrategy implements QueryStrategy<Expression<Comparable>, Predicate> {
 
 		private final From<?, ?> from;
 		private final CriteriaBuilder cb;
 
-		public JpaQueryAdapter(From<?, ?> from, CriteriaBuilder cb) {
+		public JpaQueryStrategy(From<?, ?> from, CriteriaBuilder cb) {
 			this.from = from;
 			this.cb = cb;
 		}

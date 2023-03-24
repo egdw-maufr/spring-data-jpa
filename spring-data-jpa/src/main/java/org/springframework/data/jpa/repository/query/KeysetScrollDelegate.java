@@ -48,7 +48,7 @@ public class KeysetScrollDelegate {
 	}
 
 	@Nullable
-	public <E, P> P createPredicate(KeysetScrollPosition keyset, Sort sort, QueryAdapter<E, P> queryAdapter) {
+	public <E, P> P createPredicate(KeysetScrollPosition keyset, Sort sort, QueryStrategy<E, P> strategy) {
 
 		Map<String, Object> keysetValues = keyset.getKeys();
 
@@ -67,7 +67,8 @@ public class KeysetScrollDelegate {
 		for (Order order : sort) {
 
 			if (!keysetValues.containsKey(order.getProperty())) {
-				throw new IllegalStateException("KeysetScrollPosition does not contain all keyset values");
+				throw new IllegalStateException(String
+						.format("KeysetScrollPosition does not contain all keyset values. Missing key: %s", order.getProperty()));
 			}
 
 			List<P> sortConstraint = new ArrayList<>();
@@ -75,21 +76,21 @@ public class KeysetScrollDelegate {
 			int j = 0;
 			for (Order inner : sort) {
 
-				E propertyExpression = queryAdapter.createExpression(inner.getProperty());
+				E propertyExpression = strategy.createExpression(inner.getProperty());
 				Object o = keysetValues.get(inner.getProperty());
 
 				if (j >= i) { // tail segment
 
-					sortConstraint.add(queryAdapter.compare(inner, propertyExpression, o));
+					sortConstraint.add(strategy.compare(inner, propertyExpression, o));
 					break;
 				}
 
-				sortConstraint.add(queryAdapter.compare(propertyExpression, o));
+				sortConstraint.add(strategy.compare(propertyExpression, o));
 				j++;
 			}
 
 			if (!sortConstraint.isEmpty()) {
-				or.add(queryAdapter.and(sortConstraint));
+				or.add(strategy.and(sortConstraint));
 			}
 
 			i++;
@@ -99,7 +100,7 @@ public class KeysetScrollDelegate {
 			return null;
 		}
 
-		return queryAdapter.or(or);
+		return strategy.or(or);
 	}
 
 	protected Sort getSortOrders(Sort sort) {
@@ -150,7 +151,7 @@ public class KeysetScrollDelegate {
 	 * @param <E> property path expression type.
 	 * @param <P> predicate type.
 	 */
-	public interface QueryAdapter<E, P> {
+	public interface QueryStrategy<E, P> {
 
 		/**
 		 * Create an expression object from the given {@code property} path.
